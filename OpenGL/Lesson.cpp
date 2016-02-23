@@ -38,6 +38,12 @@ GLfloat LightAmbient[]= { 0.5f, 0.5f, 0.5f, 1.0f };             // Ambient Light
 GLfloat LightDiffuse[]= { 1.0f, 1.0f, 1.0f, 1.0f };             // Diffuse Light Values (ilumina desde una posicion)
 GLfloat LightPosition[]= { 0.0f, 0.0f, 2.0f, 1.0f };            // Light Position (x, y, z, POSITION_FLAG)
 
+// Blending Equation:
+//   Source * AlphaSource + Dest * (1 - AlphaSource)
+// SORT THE TRANSPARENT POLYGONS BY DEPTH and draw them AFTER THE ENTIRE SCENE HAS BEEN DRAWN, 
+//   with the DEPTH BUFFER ENABLED
+bool    blend;									// Blending OFF/ON?
+bool    bp;										// B Pressed?
 
 LRESULT	CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);	// Declaration For WndProc
 
@@ -105,6 +111,9 @@ int InitGL(GLvoid)										// All Setup For OpenGL Goes Here
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);     // Setup The Diffuse Light
 	glLightfv(GL_LIGHT1, GL_POSITION,LightPosition);    // Position The Light
 	glEnable(GL_LIGHT1);								// Enable Light One (Ademas se debe habilitar GL_LIGHTING)
+
+	glColor4f(1.0f,1.0f,1.0f,0.5f);						// Full Brightness, 50% Alpha
+	glBlendFunc(GL_SRC_ALPHA,GL_ONE);					// Blending Function For Translucency Based On Source Alpha Value
 
 	return TRUE;										// Initialization Went OK
 }
@@ -523,6 +532,28 @@ int WINAPI WinMain(	HINSTANCE	hInstance,			// Instance
 					if (!keys['F'])                 // Has F Key Been Released?
 					{
 						fp=FALSE;               // If So, fp Becomes FALSE
+					}
+
+
+					// BLENDING
+					if (keys['B'] && !bp)               // Is B Key Pressed And bp FALSE?
+					{
+						bp=TRUE;						// If So, bp Becomes TRUE
+						blend = !blend;					// Toggle blend TRUE / FALSE   
+						if(blend)						// Is blend TRUE?
+						{
+							glEnable(GL_BLEND);			// Turn Blending On
+							glDisable(GL_DEPTH_TEST);   // Turn Depth Testing Off
+						}
+						else							// Otherwise
+						{
+							glDisable(GL_BLEND);        // Turn Blending Off
+							glEnable(GL_DEPTH_TEST);    // Turn Depth Testing On
+						}
+					}
+					if (!keys['B'])						// Has B Key Been Released?
+					{
+						bp=FALSE;						// If So, bp Becomes FALSE
 					}
 				}
 			}
