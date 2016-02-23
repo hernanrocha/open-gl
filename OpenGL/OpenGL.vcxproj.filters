@@ -34,5 +34,8 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="img\img_test.png" />
+    <Image Include="img\crate.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

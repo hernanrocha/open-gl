@@ -23,31 +23,46 @@ bool	fullscreen=TRUE;	// Fullscreen Flag Set To Fullscreen Mode By Default
 
 GLfloat     xrot;                               // X Rotation
 GLfloat     yrot;                               // Y Rotation
-GLfloat     zrot;                               // Z Rotation
- 
-GLuint      texture[1];                         // Storage For One Texture
+GLfloat xspeed;                                 // X Rotation Speed
+GLfloat yspeed;                                 // Y Rotation Speed
+GLfloat z=-5.0f;                                // Depth Into The Screen
+
+GLuint  filter;                                 // Which Filter To Use
+GLuint      texture[3];                         // Storage For One Texture
+
+BOOL    light;                                  // Lighting ON / OFF
+BOOL    lp;										// L Pressed?
+BOOL    fp;										// F Pressed?
+
+GLfloat LightAmbient[]= { 0.5f, 0.5f, 0.5f, 1.0f };             // Ambient Light Values (afecta a todos por igual)
+GLfloat LightDiffuse[]= { 1.0f, 1.0f, 1.0f, 1.0f };             // Diffuse Light Values (ilumina desde una posicion)
+GLfloat LightPosition[]= { 0.0f, 0.0f, 2.0f, 1.0f };            // Light Position (x, y, z, POSITION_FLAG)
+
 
 LRESULT	CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);	// Declaration For WndProc
 
 int LoadGLTextures()									// Load Bitmaps And Convert To Textures
 {
 	// Load an image file directly as a new OpenGL texture
-    texture[0] = SOIL_load_OGL_texture
-        (
-        "img/img_test.png",
-        SOIL_LOAD_AUTO,
-        SOIL_CREATE_NEW_ID,
-        SOIL_FLAG_INVERT_Y
-        );
+    texture[0] = SOIL_load_OGL_texture("img/crate.jpg", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+    texture[1] = SOIL_load_OGL_texture("img/crate.jpg", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+    texture[2] = SOIL_load_OGL_texture("img/crate.jpg", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y | SOIL_FLAG_MIPMAPS);
  
     if(texture[0] == 0)
         return false;
  
 	// Typical Texture Generation Using Data From The Bitmap
-	glBindTexture(GL_TEXTURE_2D, texture[0]);
-	
+	glBindTexture(GL_TEXTURE_2D, texture[0]);	
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+
+	glBindTexture(GL_TEXTURE_2D, texture[1]);
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); // Linear Filtering
 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR); // Linear Filtering
+	
+	glBindTexture(GL_TEXTURE_2D, texture[2]);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); // Linear Filtering
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST_MIPMAP_NEAREST); // Linear Filtering
 	
     return true;                                        // Return Success
 }
@@ -85,6 +100,12 @@ int InitGL(GLvoid)										// All Setup For OpenGL Goes Here
 	glEnable(GL_DEPTH_TEST);							// Enables Depth Testing
 	glDepthFunc(GL_LEQUAL);								// The Type Of Depth Testing To Do
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);	// Really Nice Perspective Calculations
+
+	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);     // Setup The Ambient Light
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);     // Setup The Diffuse Light
+	glLightfv(GL_LIGHT1, GL_POSITION,LightPosition);    // Position The Light
+	glEnable(GL_LIGHT1);								// Enable Light One (Ademas se debe habilitar GL_LIGHTING)
+
 	return TRUE;										// Initialization Went OK
 }
 
@@ -93,50 +114,55 @@ int DrawGLScene(GLvoid)									// Here's Where We Do All The Drawing
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// Clear Screen And Depth Buffer
 	glLoadIdentity();									// Reset The Current Modelview Matrix
 	
-	glTranslatef(0.0f,0.0f,-5.0f);						// Move Left 1.5 Units And Into The Screen 6.0
+	glTranslatef(0.0f,0.0f,z);							// // Translate Into/Out Of The Screen By z
 	glRotatef(xrot,1.0f,0.0f,0.0f);                     // Rotate On The X Axis
 	glRotatef(yrot,0.0f,1.0f,0.0f);                     // Rotate On The Y Axis
-	glRotatef(zrot,0.0f,0.0f,1.0f);                     // Rotate On The Z Axis
 
-	glBindTexture(GL_TEXTURE_2D, texture[0]);           // Select Our Texture (Hacerlo antes del BEGIN)
+	glBindTexture(GL_TEXTURE_2D, texture[filter]);      // Select Our Texture (Hacerlo antes del BEGIN)
 
 	glBegin(GL_QUADS);									// Draw A Quad
 		// glTexCoord2f mapea un vertice a un punto (X, Y) de la textura (0 en X -> left, 0 en Y -> bottom)
+		// glNormal3f indica la normal del poligono (X, Y, Z). Necesario para luz (cuanto menos angulo, mas luz)
 
+		glNormal3f( 0.0f, 1.0f, 0.0f);									  // Normal Pointing Up
 		glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f, 1.0f,-1.0f);          // Top Right Of The Quad (Top)
 		glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f,-1.0f);          // Top Left Of The Quad (Top)
 		glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, 1.0f, 1.0f);          // Bottom Left Of The Quad (Top)
 		glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f, 1.0f, 1.0f);          // Bottom Right Of The Quad (Top)
-
+		
+		glNormal3f( 0.0f,-1.0f, 0.0f);									  // Normal Pointing Down
 		glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f,-1.0f, 1.0f);          // Top Right Of The Quad (Bottom)
 		glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f,-1.0f, 1.0f);          // Top Left Of The Quad (Bottom)
 		glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f,-1.0f,-1.0f);          // Bottom Left Of The Quad (Bottom)
 		glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f,-1.0f,-1.0f);          // Bottom Right Of The Quad (Bottom)
-
+		
+		glNormal3f( 0.0f, 0.0f, 1.0f);									  // Normal Pointing Towards Viewer
 		glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f, 1.0f, 1.0f);          // Top Right Of The Quad (Front)
 		glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);          // Top Left Of The Quad (Front)
 		glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f,-1.0f, 1.0f);          // Bottom Left Of The Quad (Front)
 		glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f,-1.0f, 1.0f);          // Bottom Right Of The Quad (Front)
 					
+		glNormal3f( 0.0f, 0.0f,-1.0f);									  // Normal Pointing Away From Viewer
 		glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f,-1.0f,-1.0f);          // Bottom Left Of The Quad (Back)
 		glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f,-1.0f,-1.0f);          // Bottom Right Of The Quad (Back)
 		glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f,-1.0f);          // Top Right Of The Quad (Back)
 		glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f, 1.0f,-1.0f);          // Top Left Of The Quad (Back)
-
+		
+		glNormal3f(-1.0f, 0.0f, 0.0f);									  // Normal Pointing Left
 		glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);          // Top Right Of The Quad (Left)
 		glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f,-1.0f);          // Top Left Of The Quad (Left)
 		glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f,-1.0f,-1.0f);          // Bottom Left Of The Quad (Left)
 		glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f,-1.0f, 1.0f);          // Bottom Right Of The Quad (Left)
 
+		glNormal3f( 1.0f, 0.0f, 0.0f);									  // Normal Pointing Right
         glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f, 1.0f,-1.0f);          // Top Right Of The Quad (Right)
         glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f, 1.0f, 1.0f);          // Top Left Of The Quad (Right)
         glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f,-1.0f, 1.0f);          // Bottom Left Of The Quad (Right)
         glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f,-1.0f,-1.0f);          // Bottom Right Of The Quad (Right)
     glEnd();											// Done Drawing The Quad
 
-	xrot+=0.06f;                             // X Axis Rotation
-    yrot+=0.04f;                             // Y Axis Rotation
-    zrot+=0.02f;                             // Z Axis Rotation
+	xrot+=xspeed;										// X Axis Rotation
+	yrot+=yspeed;										// Y Axis Rotation
 
 	return TRUE;										// Everything Went OK
 }
@@ -462,7 +488,70 @@ int WINAPI WinMain(	HINSTANCE	hInstance,			// Instance
 				{
 					DrawGLScene();					// Draw The Scene
 					SwapBuffers(hDC);				// Swap Buffers (Double Buffering)
+
+					// LIGHTING
+					if (keys['L'] && !lp)           // L Key Being Pressed Not Held?
+					{
+						lp=TRUE;					// lp Becomes TRUE
+						light=!light;               // Toggle Light TRUE/FALSE
+
+						if (!light)					// If Not Light
+						{
+							glDisable(GL_LIGHTING); // Disable Lighting
+						}
+						else						// Otherwise
+						{
+							glEnable(GL_LIGHTING);  // Enable Lighting
+						}
+					}
+
+					if (!keys['L'])                 // Has L Key Been Released?
+					{
+						lp=FALSE;					// If So, lp Becomes FALSE
+					}
+
+					// FILTERING
+					if (keys['F'] && !fp)               // Is F Key Being Pressed?
+					{
+						fp=TRUE;                // fp Becomes TRUE
+						filter+=1;              // filter Value Increases By One
+						if (filter>2)                // Is Value Greater Than 2?
+						{
+							filter=0;           // If So, Set filter To 0
+						}
+					}
+					if (!keys['F'])                 // Has F Key Been Released?
+					{
+						fp=FALSE;               // If So, fp Becomes FALSE
+					}
 				}
+			}
+
+			if (keys[VK_PRIOR])             // Is Page Up Being Pressed?
+			{
+				z -= 0.002f;               // If So, Move Into The Screen
+			}
+
+			if (keys[VK_NEXT])              // Is Page Down Being Pressed?
+			{
+				z += 0.002f;               // If So, Move Towards The Viewer
+			}
+
+			if (keys[VK_UP])                // Is Up Arrow Being Pressed?
+			{
+				xspeed = -0.01f;              // If So, Decrease xspeed
+			}
+			if (keys[VK_DOWN])              // Is Down Arrow Being Pressed?
+			{
+				xspeed = 0.01f;              // If So, Increase xspeed
+			}
+			if (keys[VK_RIGHT])             // Is Right Arrow Being Pressed?
+			{
+				yspeed = 0.01f;              // If So, Increase yspeed
+			}
+			if (keys[VK_LEFT])              // Is Left Arrow Being Pressed?
+			{
+				yspeed = -0.01f;              // If So, Decrease yspeed
 			}
 
 			if (keys[VK_F1])						// Is F1 Being Pressed?

@@ -139,6 +139,7 @@
     <ResourceCompile Include="OpenGL.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="img\crate.jpg" />
     <Image Include="img\img_test.bmp" />
     <Image Include="img\img_test.png" />
   </ItemGroup>
