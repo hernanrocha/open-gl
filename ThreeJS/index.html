@@ -5,11 +5,75 @@
 	<head>
 		<title>Three.js tutorial - Leccion 01</title>
 		<meta http-equiv="content-type" content="text/html; charset=utf-8">
+	  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
 		<script src="js/three.js"></script>
+		
+    <!-- Shaders -->
+    <script type="x-shader/x-vertex" id="vertexshader">
+
+      // switch on high precision floats
+      #ifdef GL_ES
+      precision highp float;
+      #endif
+
+      // Varying: variable compartida entre vertex(set) y fragment(get) shader
+      varying vec3 vNormal;
+      
+      // Atributo: variable (ReadOnly) que pertenece a cada vertice
+      attribute float displacement;
+      
+      // Uniform: constante para todos los vertices en un mismo frame
+      uniform float amplitude;
+
+      void main()
+      {
+        // normal, projectionMatrix, modelViewMatrix definidos por ThreeJS
+        vNormal = normal;
+        
+        vec3 newPosition = position + normal * vec3(displacement * amplitude);
+        
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition,1.0);
+      }
+
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragmentshader">
+
+      #ifdef GL_ES
+      precision highp float;
+      #endif
+
+      varying vec3 vNormal;
+
+      void main()
+      {
+        vec3 light = vec3(0.5, 1.0, 1.0);            
+        light = normalize(light);
+        float dProd = max(0.0, dot(vNormal, light));
+  
+        gl_FragColor = vec4(dProd,0.0,dProd,1.0);
+      }
+
+    </script>
+
+    <!-- End Shaders -->
+		
 		<script>
 			var escena;
 			var camara;
 			var render;
+      var shaderUniforms;
+      
+      window.requestAnimFrame = (function(){
+        return  window.requestAnimationFrame       || 
+                window.webkitRequestAnimationFrame || 
+                window.mozRequestAnimationFrame    || 
+                window.oRequestAnimationFrame      || 
+                window.msRequestAnimationFrame     || 
+                function(/* function */ callback, /* DOMElement */ element){
+                  window.setTimeout(callback, 1000 / 60);
+                };
+      })();
 
 			function iniciarEscena(){
 				//Render
@@ -31,43 +95,57 @@
 				camara.lookAt(escena.position);
 				escena.add(camara);
 
-				//Material
-				var material = new THREE.MeshBasicMaterial({
-					color:0xFFFFFF,
-					side:THREE.DoubleSide
-				});
+        shaderUniforms = {
+          amplitude: {
+            type: 'f', // a float
+            value: 0
+          }
+        };
+        
+				// Material
+        var shaderMaterial = new THREE.ShaderMaterial({
+          uniforms:       shaderUniforms,
+          vertexShader:   $('#vertexshader').text(),
+          fragmentShader: $('#fragmentshader').text()
+        });
 
-				//Triángulo
-				var trianguloGeometria = new THREE.Geometry();
-				trianguloGeometria.vertices.push(new THREE.Vector3( 0.0,  1.0, 0.0));
-				trianguloGeometria.vertices.push(new THREE.Vector3(-1.0, -1.0, 0.0));
-				trianguloGeometria.vertices.push(new THREE.Vector3( 1.0, -1.0, 0.0));
-				trianguloGeometria.faces.push(new THREE.Face3(0, 1, 2));
+        //Esfera
+        //var radius = 2, segments = 16, rings = 16;
+        var radius = 2, segments = 32, rings = 32;
 
-				var triangulo = new THREE.Mesh(trianguloGeometria, material);
-				triangulo.position.set(-1.5, 0.0, -7.0);
-				escena.add(triangulo);
+        var sphere = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(radius, segments, rings),
+            shaderMaterial);
+        
+				sphere.position.set(0, 0.0, -7.0);
+        
+        // Add attribute shader
+        displacement = new Float32Array( sphere.geometry.attributes.position.count );
 
-				//Cuadrado
-				var cuadradoGeometria = new THREE.Geometry();
-				cuadradoGeometria.vertices.push(new THREE.Vector3(-1.0,  1.0, 0.0));
-				cuadradoGeometria.vertices.push(new THREE.Vector3( 1.0,  1.0, 0.0));
-				cuadradoGeometria.vertices.push(new THREE.Vector3( 1.0, -1.0, 0.0));
-				cuadradoGeometria.vertices.push(new THREE.Vector3(-1.0, -1.0, 0.0));
-				cuadradoGeometria.faces.push(new THREE.Face3(0, 1, 2));
-				cuadradoGeometria.faces.push(new THREE.Face3(2, 3, 0));
-
-				var cuadrado = new THREE.Mesh(cuadradoGeometria, material);
-				cuadrado.position.set(1.5, 0.0, -7.0);
-				escena.add(cuadrado);
+        for ( var i = 0; i < displacement.length; i ++ ) {
+          displacement[ i ] = (Math.random() - 0.5) * 1;
+        }        
+        sphere.geometry.addAttribute( 'displacement', new THREE.BufferAttribute( displacement, 1 ) );
+        
+        escena.add(sphere);        
 			}
-			function renderEscena(){
-				render.render(escena, camara);
-			}
+			
+      var frame = 0;	
+      // draw!
+      function update() {
+        shaderUniforms.amplitude.value = Math.sin(frame);
+        frame += 0.1;
+
+        render.render(escena, camara);
+
+        // set up the next call
+        requestAnimFrame(update);
+      }
+
 
 			function webGLStart() {
 				iniciarEscena();
-				renderEscena();
+        requestAnimFrame(update);
 			}		
 		</script>
 	</head>
