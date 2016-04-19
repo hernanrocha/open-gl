@@ -5,6 +5,7 @@ using System.Collections;
 
 public class PlayerController : NetworkBehaviour {
 
+	public GameObject bulletPrefab;
 	public float speed;
 	public Text countText;
 	public Text winText;
@@ -14,9 +15,12 @@ public class PlayerController : NetworkBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		Instantiate (countText);
+		Instantiate (winText);
+
 		rb = GetComponent<Rigidbody> ();
 		count = 0;
-		//setCount ();
+		setCount ();
 	}
 
 	public override void OnStartLocalPlayer()
@@ -50,6 +54,11 @@ public class PlayerController : NetworkBehaviour {
 
 		Vector3 movement = new Vector3 (moveHorizontal, 0.0f, moveVertical);
 		rb.AddForce (movement * speed);
+
+		if (Input.GetKeyDown(KeyCode.Space))
+		{
+			CmdFire();
+		}
     }
 
 	void OnTriggerEnter(Collider other)
@@ -64,10 +73,29 @@ public class PlayerController : NetworkBehaviour {
 
 	void setCount()
 	{
-		//countText.text = "Count: " + count.ToString ();
+		countText.text = "Count: " + count.ToString ();
 
-		//if (count == 12) {
-			//winText.gameObject.SetActive(true);
-		//}
+		if (count == 12) {
+			winText.gameObject.SetActive(true);
+		}
+	}
+
+	[Command]
+	void CmdFire()
+	{
+		// create the bullet object from the bullet prefab
+		var bullet = (GameObject)Instantiate(
+			bulletPrefab,
+			transform.position - transform.forward,
+			Quaternion.identity);
+
+		// make the bullet move away in front of the player
+		bullet.GetComponent<Rigidbody>().velocity = -transform.forward*4;
+
+		// spawn the bullet on the clients
+		NetworkServer.Spawn(bullet);
+
+		// make bullet disappear after 2 seconds
+		Destroy(bullet, 2.0f);
 	}
 }
